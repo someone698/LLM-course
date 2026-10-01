@@ -1,0 +1,14 @@
+# 模型（体积大，scripts/02_train.sh 可重新生成）
+# models_tagged/ 是 06 对照实验的"不清理"版模型
+out/models*/
+out/tmp/
+
+# KenLM 源码：第三方仓库，按 README 自行 clone
+tools/kenlm/
+
+# 编译中间物与可执行文件
+tools/build/
+tools/bin/
+
+# 语料：见 README「语料」一节，自行下载
+data/
