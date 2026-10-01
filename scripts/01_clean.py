@@ -66,6 +66,8 @@ def main():
     residue = Counter()
     n_tok_raw = n_tok_clean = 0
     vocab_clean, vocab_tagged = set(), set()
+    vocab_rawtok = set()           # 原始空白切分：括号不拆、标签不拆
+    doc_id_tokens = set()          # 行首文章编号 token（全量去重）
     article_ids = set()
     word_tags = defaultdict(set)   # 词 -> 出现过的词性集合（兼类词统计）
 
@@ -84,12 +86,14 @@ def main():
                 # 文章 ID：既是清洗对象，也用来做"文章级"数据集划分
                 cur_id = m.group(1)        # 19980101-01-001-001
                 article_ids.add(cur_id)
+                doc_id_tokens.add(tok)
                 continue
             if i == 0 and tok.startswith("1998") and "/" in tok:
                 # 编号格式略有出入的行首也丢掉，但记一笔
                 residue["非常规文档编号"] += 1
                 continue
 
+            vocab_rawtok.add(tok)
             word, tag = split_token(tok)
             if tag is None:
                 residue["无标签token"] += 1
@@ -146,6 +150,9 @@ def main():
     lens = [len(l.split()) for l in clean_lines]
     ambiguous = {w: ts for w, ts in word_tags.items() if len(ts) > 1}
     extra_types = sum(len(ts) - 1 for ts in ambiguous.values())
+    # 词表的四个口径：只差"留下来的是什么"（帖子与 README 报的是最后一行）
+    n_clean, n_tag = len(vocab_clean), len(vocab_tagged)
+    n_raw, n_id = len(vocab_rawtok), len(doc_id_tokens)
     report = [
         "=== P125 语料清洗报告 ===",
         f"源文件            : {RAW.name}",
@@ -153,14 +160,18 @@ def main():
         f"token 总数        : {n_tok_clean:,}",
         f"篇均词数          : {sum(lens)/n_doc:.2f}（最长 {max(lens)}，最短 {min(lens)}）",
         "",
-        "--- 词表规模：清理 vs 不清理 ---",
-        f"清洗后词表（纯词）    : {len(vocab_clean):,}",
-        f"不清理词表（词/词性） : {len(vocab_tagged):,}",
-        f"膨胀倍数             : {len(vocab_tagged)/len(vocab_clean):.3f}x",
+        "--- 词表规模：四个口径（都按全量语料统计）---",
+        f"  清洗后（基准，纯词）           : {n_clean:,}",
+        f"  只保留词性标签（词/词性）       : {n_tag:,}  ×{n_tag/n_clean:.3f}",
+        f"  原始 token 串（括号也不拆）     : {n_raw:,}  ×{n_raw/n_clean:.3f}",
+        f"  什么都不删（再加文章编号）       : {n_raw+n_id:,}  ×{(n_raw+n_id)/n_clean:.3f}",
+        "    加性分解（相对基准，三项互不重叠）：",
+        f"      词性标签 +{n_tag-n_clean:,}   括号 +{n_raw-n_tag:,}   "
+        f"文章编号 +{n_id:,}   合计 +{n_raw+n_id-n_clean:,}",
         "",
         "--- 膨胀从哪来：兼类词（同一个词带多种词性）---",
         f"兼类词数量           : {len(ambiguous):,} / {len(word_tags):,} ({len(ambiguous)/len(word_tags)*100:.1f}%)",
-        f"它们贡献的额外类型   : {extra_types:,}（= 全部膨胀量；文章编号未计入任一侧词表）",
+        f"它们贡献的额外类型   : {extra_types:,}（= 「只保留词性标签」那一档的全部膨胀量；不含括号与文章编号）",
         "  最重的兼类词：",
     ]
     for w, ts in sorted(ambiguous.items(), key=lambda kv: -len(kv[1]))[:8]:

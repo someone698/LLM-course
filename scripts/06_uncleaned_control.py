@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-P125 对照实验：不清理会怎样。
+P125 对照实验：只保留标签会怎样。
 
 动机：README 清洗规则表里"不清会怎样"一列，此前全是机制推断——
 data/renmin.tagged.txt 生成之后从来没有真的训练过，五个模型全在清洗版上训。
@@ -47,7 +47,7 @@ GEN_ORDER = 5
 
 CORPORA = [
     ("clean", "清洗后", CLEAN_SPLIT, OUT / "models"),
-    ("tagged", "不清理", TAGGED_SPLIT, TAGGED_MODELS),
+    ("tagged", "只保留标签", TAGGED_SPLIT, TAGGED_MODELS),
 ]
 
 PREFIX_WORDS = ["在", "阳光", "明媚", "的", "五月", "，", "我们", "学校", "胜利", "召开", "了"]
@@ -135,7 +135,7 @@ def pick(models_dir: Path, order: int):
 
 def tagged_prefix(train_lines):
     """前缀每个词取训练集里最高频的词性。
-    不清理版的词表里没有裸词，喂 clean 前缀会整句 OOV、状态全坏。"""
+    只保留标签版的词表里没有裸词，喂 clean 前缀会整句 OOV、状态全坏。"""
     want = set(PREFIX_WORDS)
     tags = {w: Counter() for w in PREFIX_WORDS}
     for sent in train_lines:
@@ -280,18 +280,23 @@ def main():
 
     # --- 报告 ---
     L = [
-        "# P125 对照实验：清理 vs 不清理",
+        "# P125 对照实验：清理 vs 只保留词性标签",
         "",
         "唯一变量是 token 粒度。两份语料由 `01_clean.py` 同一次循环产出、逐行对齐，",
         "**文章划分相同、token 位置数相同**，只有 token 写法不同（`迈向` vs `迈向/v`）。",
         "",
         "（两版逐 token 对齐已由本脚本校验：tagged 去掉 `/词性` 后与 clean 完全相同。）",
         "",
+        "> **口径**：本报告的「只保留标签」= 文章编号已去掉、括号已拆开，唯一的差别是留不留",
+        "> `/词性`。若**什么都不删**（编号、括号、标签全留着），全量词表是 **83,395** 类、",
+        "> **×1.508**，分解见 `out/clean_report.txt`「词表规模：四个口径」。",
+        "",
         "## A. 词表碎片化（词性标签）",
         "",
-        "（本节词表口径是**训练集**；`out/clean_report.txt` 里的 55,310 / 62,031 是全量语料口径。）",
+        "（本节词表口径是**训练集**；`out/clean_report.txt` 里的 55,310 / 62,031 / 83,395",
+        "是全量语料口径。）",
         "",
-        "| 指标 | 清洗后 | 不清理 | 变化 |",
+        "| 指标 | 清洗后 | 只保留标签 | 变化 |",
         "|---|---|---|---|",
         "| 训练集词表规模（类型数） | %s | %s | +%.2f× |" % (
             f"{cv['types']:,}", f"{tv['types']:,}", tv['types'] / cv['types']),
@@ -305,7 +310,7 @@ def main():
         "",
         "## B. k-gram 相异率（训练集）",
         "",
-        "| 阶数 k | 清洗后 相异数 | 清洗后 相异率 | 不清理 相异数 | 不清理 相异率 |",
+        "| 阶数 k | 清洗后 相异数 | 清洗后 相异率 | 只保留标签 相异数 | 只保留标签 相异率 |",
         "|---|---|---|---|---|",
     ]
     for k in range(1, MAX_ORDER + 1):
@@ -318,7 +323,7 @@ def main():
         "",
         "## C. 测试集未见上下文率（模型只能回退的比例）",
         "",
-        "| 阶数 k | 清洗后 | 不清理 | 差值 |",
+        "| 阶数 k | 清洗后 | 只保留标签 | 差值 |",
         "|---|---|---|---|",
     ]
     for k in range(1, MAX_ORDER + 1):
@@ -331,7 +336,7 @@ def main():
             "",
             "## D. 模型行为（测试集）",
             "",
-            "| 阶数 | OOV 率 清洗后 | OOV 率 不清理 | 平均实际阶数 清洗后 | 平均实际阶数 不清理 |",
+            "| 阶数 | OOV 率 清洗后 | OOV 率 只保留标签 | 平均实际阶数 清洗后 | 平均实际阶数 只保留标签 |",
             "|---|---|---|---|---|",
         ]
         for o in args.orders:
@@ -344,7 +349,7 @@ def main():
             "",
             "### ⚠️ 困惑度：算出来了，但不能用来对比",
             "",
-            "| 阶数 | PPL 清洗后 | PPL 不清理 |",
+            "| 阶数 | PPL 清洗后 | PPL 只保留标签 |",
             "|---|---|---|",
         ]
         for o in args.orders:
@@ -372,17 +377,17 @@ def main():
             "| 版本 | 前缀 |",
             "|---|---|",
             "| 清洗后 | `%s` |" % " ".join(PREFIX_WORDS),
-            "| 不清理 | `%s` |" % " ".join(prefix),
+            "| 只保留标签 | `%s` |" % " ".join(prefix),
             "",
             "```",
             "[清洗后] …" + (gc or "（缺 out/generations.json）"),
             "",
-            "[不清理] …" + (gt or "（缺 out/generations_tagged.json）"),
+            "[只保留标签] …" + (gt or "（缺 out/generations_tagged.json）"),
             "```",
             "",
-            "不清理版的每个 token 都带 `/词性`——模型的输出格式本身是错的。",
+            "只保留标签版的每个 token 都带 `/词性`——模型的输出格式本身是错的。",
             "",
-            "前缀词性取自训练集最高频（不清理版词表里没有裸词，喂 clean 前缀会整句 OOV）：",
+            "前缀词性取自训练集最高频（只保留标签版词表里没有裸词，喂 clean 前缀会整句 OOV）：",
             "",
             "| 词 | 取的词性 | 该词性频次 | 该词共有几种词性 |",
             "|---|---|---|---|",
@@ -406,8 +411,8 @@ def main():
         f"（{sum(1 for v in ids.values() if v == 1) / n_id_typ * 100:.2f}%） |",
         f"| 保留编号后词表（训练集） | {cv['types']:,} → **{with_tag:,}**（×{with_tag / cv['types']:.3f}） |",
         f"| 对比：保留词性标签后（训练集） | {cv['types']:,} → {tv['types']:,}（×{tv['types'] / cv['types']:.3f}） |",
-        f"| 两样都保留（训练集） | ≈ {all_bad:,}（×{all_bad / cv['types']:.3f}） |",
-        f"| 全量语料同口径 | {full_vocab:,} → {with_tag_full:,}（×{with_tag_full / full_vocab:.3f}） |",
+        f"| 两样都保留：标签 + 编号（训练集；括号已拆） | ≈ {all_bad:,}（×{all_bad / cv['types']:.3f}） |",
+        f"| 全量语料、同样只保留编号 | {full_vocab:,} → {with_tag_full:,}（×{with_tag_full / full_vocab:.3f}） |",
         "",
         f"**编号造成的词表膨胀（训练集 ×{with_tag / cv['types']:.3f}，全量 ×{with_tag_full / full_vocab:.3f}）"
         f"比词性标签（×{tv['types'] / cv['types']:.3f}）更大。**"
