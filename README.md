@@ -5,8 +5,9 @@
 | 目录 | 作业 | 内容 |
 |---|---|---|
 | [`hw1-ngram/`](hw1-ngram/) | hw1（P125 编程作业） | 人民日报语料清洗，KenLM 训练 1–5 阶 n-gram，困惑度、稀疏度与续写实验 |
+| [`hw2-gensim-fasttext/`](hw2-gensim-fasttext/) | hw2 | 人民日报语料训练 Gensim Word2Vec / FastText 词向量，官方 fastText 做 2/4/8 类新闻分类（弱标签），含论文↔实现核对 |
 
-后续作业（Gensim 表示学习、FastText 文本分类等）完成后加入。
+后续作业完成后继续加入。
 
 ## 复现约定
 

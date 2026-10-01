@@ -1,0 +1,11 @@
+# 语料：见 README「语料」一节，自行下载
+data/
+
+# 中间数据与模型/向量文件（体积大，scripts/ 可重新生成）
+out/articles.tsv
+out/sentences.txt
+out/labels.tsv
+out/models*/
+out/*.vec
+out/*.bin
+out/tmp/
