@@ -179,14 +179,25 @@ def generate_tagged(prefix):
     ], check=True)
 
 
-def article_id_stats():
-    """文章编号那一行的代价：ID 是行首 token，每个基本只出现一次。"""
+def split_bucket(article_id: str) -> str:
+    """复刻 01_clean.py 的分桶规则，用来把某个编号归属到 train/valid/test。"""
+    import hashlib
+    h = int(hashlib.md5(article_id.encode()).hexdigest()[:8], 16) % 1000
+    return "valid" if h < 10 else "test" if h < 20 else "train"
+
+
+def article_id_stats(bucket=None):
+    """文章编号那一行的代价：ID 是行首 token，每个基本只出现一次。
+
+    bucket=None 取全量；给定 'train' 时只数训练集里的编号——否则拿全量的编号数
+    去加训练集的词表，基数不一致，膨胀倍数会虚高。
+    """
     ids = Counter()
     for line in (ROOT / "data" / "renmin.raw.txt").open(encoding="utf-8", errors="replace"):
         parts = line.split()
         if parts:
             m = DOC_ID.match(parts[0])
-            if m:
+            if m and (bucket is None or split_bucket(m.group(1)) == bucket):
                 ids[m.group(1)] += 1
     return ids
 
@@ -255,12 +266,17 @@ def main():
             print(f"{key:<6} {o}-gram  PPL = {t['ppl']:9.2f}  OOV = {t['oov']*100:6.2f}%  "
                   f"平均实际阶数 = {t['order']:5.3f}", file=sys.stderr)
 
-    ids = article_id_stats()
+    ids = article_id_stats()                  # 全量：用来叙述语料事实（重复编号）
+    ids_train = article_id_stats("train")     # 训练集：用来算词表膨胀，和 cv 同基数
     n_id_tok = sum(ids.values())
     n_id_typ = len(ids)
     dupes = {k: v for k, v in ids.items() if v > 1}
-    with_tag = cv["types"] + n_id_typ
-    all_bad = cv["types"] + n_id_typ + (tv["types"] - cv["types"])
+    with_tag = cv["types"] + len(ids_train)
+    all_bad = with_tag + (tv["types"] - cv["types"])
+    # 全量口径（README 与帖子引用的是这条，基数换成全库清洗词表）
+    full_vocab = len({w for l in (ROOT / "data" / "renmin.clean.txt")
+                      .read_text(encoding="utf-8").splitlines() for w in l.split()})
+    with_tag_full = full_vocab + n_id_typ
 
     # --- 报告 ---
     L = [
@@ -388,11 +404,13 @@ def main():
         f"| 不同编号数 | {n_id_typ:,} |",
         f"| 出现一次的编号 | {sum(1 for v in ids.values() if v == 1):,}"
         f"（{sum(1 for v in ids.values() if v == 1) / n_id_typ * 100:.2f}%） |",
-        f"| 保留编号后词表 | {cv['types']:,} → **{with_tag:,}**（×{with_tag / cv['types']:.3f}） |",
-        f"| 对比：保留词性标签后 | {cv['types']:,} → {tv['types']:,}（×{tv['types'] / cv['types']:.3f}） |",
-        f"| 两样都保留 | ≈ {all_bad:,}（×{all_bad / cv['types']:.3f}） |",
+        f"| 保留编号后词表（训练集） | {cv['types']:,} → **{with_tag:,}**（×{with_tag / cv['types']:.3f}） |",
+        f"| 对比：保留词性标签后（训练集） | {cv['types']:,} → {tv['types']:,}（×{tv['types'] / cv['types']:.3f}） |",
+        f"| 两样都保留（训练集） | ≈ {all_bad:,}（×{all_bad / cv['types']:.3f}） |",
+        f"| 全量语料同口径 | {full_vocab:,} → {with_tag_full:,}（×{with_tag_full / full_vocab:.3f}） |",
         "",
-        f"**编号造成的词表膨胀（×{with_tag / cv['types']:.3f}）比词性标签（×{tv['types'] / cv['types']:.3f}）更大。**"
+        f"**编号造成的词表膨胀（训练集 ×{with_tag / cv['types']:.3f}，全量 ×{with_tag_full / full_vocab:.3f}）"
+        f"比词性标签（×{tv['types'] / cv['types']:.3f}）更大。**"
         "99.99% 的编号只出现一次，与它相邻的 n-gram 组合也各只出现一次——"
         "这部分计数不可能被统计到任何规律。",
         "",
