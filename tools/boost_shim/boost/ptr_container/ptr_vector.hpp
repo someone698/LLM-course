@@ -1,12 +1,12 @@
 #ifndef BOOST_PTR_CONTAINER_PTR_VECTOR_HPP
 #define BOOST_PTR_CONTAINER_PTR_VECTOR_HPP
 // Boost 兼容垫片：只实现 KenLM 用到的那部分 boost::ptr_vector 接口。
-// 语义：容器持有指针的所有权；迭代器解引用得到 T&（而不是 T*）。
+// 语义：容器持有指针的所有权；元素是 T*，迭代器解引用得到 T&。
 // KenLM 各处用法：push_back(new T(...)) / empty() / clear() / size() /
 //                 [i] -> T& / begin()..end() 且 *it 为 T&。
 // 真 Boost 的 ptr_container 建立在 smart_ptr 之上，会连带引入 scoped_array。
-// KenLM 依赖了这一点：lm/builder/corpus_count.cc 使用了 boost::scoped_array
-// 却没直接 include 它，而是经由 util/stream/chain.hh -> 本头文件 拿到。
+// KenLM 依赖了这一点：lm/builder/corpus_count.cc 使用了 boost::scoped_array，
+// 其可见性来自 util/stream/chain.hh -> 本头文件的传递。
 // 这里补上同一传递关系，保持与上游一致的可见性。
 #include <boost/scoped_array.hpp>
 
