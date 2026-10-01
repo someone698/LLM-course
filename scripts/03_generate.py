@@ -91,12 +91,12 @@ def next_word(model, state, vocab, mode, temperature, rng):
     return logits[-1][1], None, len(vocab)
 
 
-def generate(model, vocab, n_gen, mode, temperature, seed=0):
+def generate(model, vocab, n_gen, mode, temperature, seed=0, prefix_tokens=None):
     rng = random.Random(seed)
     state = kenlm.State()
     model.BeginSentenceWrite(state)
     out = kenlm.State()
-    for w in PREFIX_TOKENS:                 # 把前缀走成上下文状态
+    for w in (prefix_tokens or PREFIX_TOKENS):   # 把前缀走成上下文状态
         model.BaseScore(state, w, out)
         state, out = out, kenlm.State()
 
@@ -117,12 +117,19 @@ def main():
     ap.add_argument("--temps", type=float, nargs="+", default=[0.5, 1.0, 1.5])
     ap.add_argument("--seed", type=int, default=20260930)
     ap.add_argument("--models", default=str(OUT / "models"))
+    # 不清理版（06 对照实验）要传带词性的前缀——那个模型的词表里根本没有裸词
+    ap.add_argument("--prefix", default=" ".join(PREFIX_TOKENS),
+                    help="空格分隔的前缀词序列")
+    ap.add_argument("--out-name", default="generations",
+                    help="产物文件名前缀，写出 out/<name>.md 与 out/<name>.json")
     args = ap.parse_args()
 
     models_dir = Path(args.models)
+    prefix_tokens = args.prefix.split()
+    prefix_text = "".join(prefix_tokens)
     results = {}
-    lines = [f"# P125 续写结果", "", f"前缀：**{PREFIX}**", "",
-             f"（分词后喂入：{' '.join(PREFIX_TOKENS)}）", ""]
+    lines = [f"# P125 续写结果", "", f"前缀：**{prefix_text}**", "",
+             f"（分词后喂入：{' '.join(prefix_tokens)}）", ""]
 
     for o in args.orders:
         mpath, arpa = pick_model(o, models_dir)
@@ -136,10 +143,10 @@ def main():
         per_order = {}
 
         # greedy
-        text, steps = generate(model, vocab, args.gen, "greedy", 1.0, args.seed)
+        text, steps = generate(model, vocab, args.gen, "greedy", 1.0, args.seed, prefix_tokens)
         per_order["greedy"] = {"text": "".join(text), "steps": steps}
         lines += [f"## {o}-gram · greedy（argmax）", "",
-                  f"```\n{PREFIX}{''.join(text)}\n```",
+                  f"```\n{prefix_text}{''.join(text)}\n```",
                   "逐步 log10 P：", "",
                   "| 步 | 词 | log10 P |", "|---|---|---|"]
         lines += [f"| {i+1} | {s['word']} | {s['log10p']} |" for i, s in enumerate(steps)]
@@ -147,18 +154,18 @@ def main():
 
         # sampling at several temperatures
         for T in args.temps:
-            text, _ = generate(model, vocab, args.gen, "sample", T, args.seed)
+            text, _ = generate(model, vocab, args.gen, "sample", T, args.seed, prefix_tokens)
             per_order[f"sample_T{T}"] = "".join(text)
             lines += [f"### {o}-gram · sample T={T}", "",
-                      f"```\n{PREFIX}{''.join(text)}\n```", ""]
+                      f"```\n{prefix_text}{''.join(text)}\n```", ""]
 
         results[f"{o}gram"] = per_order
 
     OUT.mkdir(parents=True, exist_ok=True)
-    (OUT / "generations.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
-    (OUT / "generations.json").write_text(
+    (OUT / f"{args.out_name}.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    (OUT / f"{args.out_name}.json").write_text(
         json.dumps(results, ensure_ascii=False, indent=2), encoding="utf-8")
-    print(f"\n写出 {OUT/'generations.md'}")
+    print(f"\n写出 {OUT/(args.out_name + '.md')}")
 
 
 if __name__ == "__main__":

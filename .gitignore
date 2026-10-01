@@ -2,7 +2,8 @@
 .venv/
 
 # 模型（体积大，scripts/02_train.sh 可重新生成）
-out/models/
+# models_tagged/ 是 06 对照实验的"不清理"版模型
+out/models*/
 out/tmp/
 
 # KenLM 源码：第三方仓库，按 README 自行 clone

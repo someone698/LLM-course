@@ -3,8 +3,9 @@
 # 记录：每阶训练耗时、模型体积、各阶 n-gram 条数、lmplz 的训练过程输出。
 #
 # 依赖 lmplz / build_binary（KenLM 的 C++ 可执行文件）。
-# 可用环境变量覆盖：
+# 可用环境变量覆盖（换语料/换输出目录即可复用，06 对照实验就是这么调它的）：
 #   LMPLZ=/path/to/lmplz  ORDERS="1 2 3 4 5"  TRAIN=data/split/train.txt
+#   OUT_DIR=out/models  LOG_DIR=out/logs  RESULT=out/train_bench.tsv
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -12,10 +13,10 @@ LMPLZ="${LMPLZ:-$ROOT/tools/bin/lmplz}"
 BUILD_BINARY="${BUILD_BINARY:-$(dirname "$LMPLZ")/build_binary}"
 ORDERS="${ORDERS:-1 2 3 4 5}"
 TRAIN="${TRAIN:-$ROOT/data/split/train.txt}"
-OUT="$ROOT/out/models"
-LOG="$ROOT/out/logs"
-TMP="$ROOT/out/tmp"
-RESULT="$ROOT/out/train_bench.tsv"
+OUT="${OUT_DIR:-$ROOT/out/models}"
+LOG="${LOG_DIR:-$ROOT/out/logs}"
+TMP="${TMP_DIR:-$ROOT/out/tmp}"
+RESULT="${RESULT:-$ROOT/out/train_bench.tsv}"
 
 if [[ ! -x "$LMPLZ" ]]; then
   cat >&2 <<EOF
@@ -31,7 +32,7 @@ EOF
   exit 1
 fi
 
-mkdir -p "$OUT" "$LOG" "$TMP"
+mkdir -p "$OUT" "$LOG" "$TMP" "$(dirname "$RESULT")"
 printf 'order\ttrain_sec\tarpa_bytes\tbin_bytes\tngram_1\tngram_2\tngram_3\tngram_4\tngram_5\n' > "$RESULT"
 
 for o in $ORDERS; do

@@ -27,7 +27,13 @@ out/train_bench.tsv          训练耗时/体积/阶数规模对比表
 out/logs/lmplz.N.stderr      lmplz 的训练过程输出
         │
         ├─ 03_generate.py   从前缀续写（greedy / 采样 × 温度）
-        └─ 04_eval.py       验证集/测试集困惑度 + OOV 率
+        ├─ 04_eval.py       验证集/测试集困惑度 + OOV 率
+        ├─ 05_sparsity.py   数据稀疏度测量
+        └─ 06_uncleaned_control.py   对照实验：不清理会怎样
+
+data/split_tagged/{train,valid,test}.txt   同一套划分套在 tagged 版上（06 用）
+out/models_tagged/                         06 训出的"不清理"版模型
+out/uncleaned_control.md                   06 的对照报告
 ```
 
 ## 运行
@@ -57,6 +63,9 @@ bash scripts/02_train.sh
 
 # 7) 数据稀疏测量
 .venv/bin/python scripts/05_sparsity.py
+
+# 8) 对照实验：不清理会怎样（用 02/03 两个脚本，只换输入与输出目录）
+.venv/bin/python scripts/06_uncleaned_control.py
 ```
 
 ### 关于 KenLM 的编译：官方 cmake 在本机走不通
@@ -98,6 +107,19 @@ bash scripts/02_train.sh
 
 实测词表：清洗后 **55,310** 类，不清理 **62,031** 类，膨胀 **1.122×**；
 其中 5,477 个兼类词贡献了全部 6,721 个额外类型（文章编号未计入任一侧词表）。
+
+**对照实测**（`06_uncleaned_control.py` → `out/uncleaned_control.md`）：
+上表"不清会怎样"一列原先只有机制推断——`renmin.tagged.txt` 生成之后从未真的训练过。
+现在补上了这条对照：唯一变量是 token 粒度，两版语料由 `01_clean.py` 同一次循环产出、
+逐行对齐（脚本内含逐 token 校验），**文章划分与 token 位置数完全相同**。摘要：
+
+- 量化代价**方向一致，但幅度不大**：5-gram 的 OOV 率 2.36% → 2.72%，
+  平均实际阶数 2.145 → 2.107，5-gram 相异率 96.19% → 96.35%。
+- 定性代价是**决定性的**：不清理的模型每个 token 都带 `/词性`，输出格式本身就错了。
+- 文章编号造成的词表膨胀（×1.356）其实**比词性标签（×1.121）更大**。
+- ⚠️ **困惑度不可比，不要拿它下结论**：tagged 模型预测 (词, 词性) 联合分布、
+  clean 模型预测词的边缘分布，而 H(词,词性) ≥ H(词) 恒成立——
+  tagged 模型无论训练得多好这个数都必然更大。
 
 **标签的出处**：这份语料是北京大学计算语言学研究所加工的人工标注语料（1998 年 1 月，
 约 112 万词），标记集即《现代汉语语料库词类标记集》——后来国标 GB/T 20532 的同源前身。

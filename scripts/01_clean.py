@@ -124,14 +124,23 @@ def main():
     # --- 文章级划分 train/valid/test ---
     # 按文章编号哈希分桶（可复现），保证同一篇文章不会跨集泄漏。
     # 本语料一行即一篇，但按 ID 分桶对"一篇文章多行"的语料同样成立。
+    # 同一套分桶同时套在 clean / tagged 两版上，逐行对齐——这让"清理 vs 不清理"
+    # 成为唯一变量对照（06_uncleaned_control.py 用的就是这两组）。
     SPLIT = ROOT / "data" / "split"
+    SPLIT_TAGGED = ROOT / "data" / "split_tagged"
     SPLIT.mkdir(parents=True, exist_ok=True)
+    SPLIT_TAGGED.mkdir(parents=True, exist_ok=True)
     buckets = {"train": [], "valid": [], "test": []}
-    for art, text in zip(doc_of_line, clean_lines):
+    buckets_tagged = {"train": [], "valid": [], "test": []}
+    for art, text, text_tagged in zip(doc_of_line, clean_lines, tagged_lines):
         h = int(hashlib.md5(art.encode()).hexdigest()[:8], 16) % 1000
-        buckets["valid" if h < 10 else "test" if h < 20 else "train"].append(text)
+        b = "valid" if h < 10 else "test" if h < 20 else "train"
+        buckets[b].append(text)
+        buckets_tagged[b].append(text_tagged)
     for name, lines in buckets.items():
         (SPLIT / f"{name}.txt").write_text("\n".join(lines) + "\n", encoding="utf-8")
+        (SPLIT_TAGGED / f"{name}.txt").write_text("\n".join(buckets_tagged[name]) + "\n",
+                                                  encoding="utf-8")
 
     n_doc = len(clean_lines)
     lens = [len(l.split()) for l in clean_lines]
