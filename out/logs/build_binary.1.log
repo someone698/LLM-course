@@ -1,0 +1,6 @@
+Reading out/models/renmin.1gram.arpa
+----5---10---15---20---25---30---35---40---45---50---55---60---65---70---75---80---85---90---95--100
+****************************************************************************************************
+tools/kenlm/lm/model.cc:100 in void lm::ngram::detail::GenericModel<Search, VocabularyT>::InitializeFromARPA(int, const char*, const lm::ngram::Config&) [with Search = lm::ngram::detail::HashedSearch<lm::ngram::BackoffValue>; VocabularyT = lm::ngram::ProbingVocabulary] threw FormatLoadException.
+This ngram implementation assumes at least a bigram model. Byte: 22
+ERROR
